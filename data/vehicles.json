@@ -1,0 +1,20 @@
+{
+  "2027": {
+    "model": "Bolt",
+    "bodyType": "Sport Utility",
+    "bodyButtonLabel": "Body Sport Utility",
+    "doorOptionLabel": "Door - Sport Utility"
+  },
+  "2026": {
+    "model": "Blazer EV",
+    "bodyType": "Sport Utility",
+    "bodyButtonLabel": "Body Sport Utility",
+    "doorOptionLabel": "Door - Sport Utility"
+  },
+  "2025": {
+    "model": "Blazer",
+    "bodyType": "Sport Utility",
+    "bodyButtonLabel": "Body Sport Utility",
+    "doorOptionLabel": "Door - Sport Utility"
+  }
+}

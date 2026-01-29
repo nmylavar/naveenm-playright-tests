@@ -1,0 +1,22 @@
+# Run Playwright tests in Docker. Use from project root (folder with tests/ and Dockerfile).
+# Build:  docker compose build
+# Run:    docker compose run --rm playwright
+# Run one project:  docker compose run --rm playwright npx playwright test --project=chromium-parts
+services:
+  playwright:
+    build: .
+    image: chevy-playwright-tests:latest
+    container_name: chevy-playwright
+    # Recommended for Chromium stability in containers
+    ipc: host
+    init: true
+    # Optional: mount auth state from host so tests can use saved login
+    volumes:
+      - ./test-results:/app/test-results
+      # Uncomment to use saved auth state (create storage/ and run setup-auth:manual on host first):
+      # - ./storage:/app/storage
+    environment:
+      - CI=1
+    # Override default command if needed, e.g.:
+    # command: npx playwright test --project=chromium-parts
+    command: npx playwright test
