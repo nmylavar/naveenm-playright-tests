@@ -6,6 +6,20 @@ import { Page, expect } from '@playwright/test';
 import credentials from '../data/credentials.json';
 import type { Env, Site } from '../utils/envUtils';
 import { dismissBanner } from '../utils/banner.util';
+import {
+  NAV_TIMEOUT_MS,
+  AUTH_GOTO_RETRY_MS,
+  AUTH_POLL_MS,
+  AUTH_POLL_DEADLINE_MS,
+  AUTH_AFTER_CLICK_MS,
+  AUTH_MODAL_WAIT_MS,
+  AUTH_PROFILE_VISIBLE_MS,
+  AUTH_SIGNOUT_VISIBLE_MS,
+  AUTH_SIGNIN_BUTTON_MS,
+  AUTH_BLOCKING_MODAL_MS,
+  STEP_TIMEOUT_MS,
+  OPTION_VISIBILITY_MS,
+} from '../constants/waits';
 
 /** Expected profile button text after login (e.g. user first name). Set in data/credentials.json as profileName. */
 const profileName = (credentials as { username?: string; password?: string; profileName?: string }).profileName ?? 'My Account';
@@ -52,24 +66,16 @@ export class AuthPage {
     return this.page.getByRole('textbox', { name: 'Password' });
   }
   /** Login submit button – GM form shows "Log In" (not "Sign in"). Support both. */
-  get signInBtn() {
-    return this.page.getByRole('button', { name: 'Log In' }).first().or(this.page.getByRole('button', { name: 'Sign in' }).first());
-  }
-  get signInBtnLogIn() {
-    return this.page.getByRole('button', { name: 'Log In' }).first();
-  }
-  get signInBtnByLabel() {
-    return this.page.getByLabel('Log In', { exact: true }).or(this.page.getByLabel('Sign in', { exact: true }));
-  }
   /** Submit button may have id="continue" on password step. */
   get signInBtnById() {
     return this.page.locator('#continue');
   }
-  get signInBtnByText() {
-    return this.page.getByText('Log In', { exact: true }).first().or(this.page.getByText('Sign in', { exact: true }).first());
+  /** Log In / Sign in button (GM form uses "Log In"). */
+  get signInBtn() {
+    return this.page.getByRole('button', { name: 'Log In' }).first().or(this.page.getByRole('button', { name: 'Sign in' }).first());
   }
-  get signInSubmitInput() {
-    return this.page.locator('input[type="submit"][value*="Sign"], input[type="submit"][value*="sign"], input[type="submit"][value*="Log"]').first();
+  get signInPrimaryBtn() {
+    return this.page.locator('button.gb-primary-button.chevy-primary-button').filter({ hasText: /Log In|Sign in/i });
   }
   /** After login, header shows user name as a button. */
   get profileButton() {
@@ -122,7 +128,7 @@ export class AuthPage {
 
   /** Try to click the Sign in submit button with multiple selectors and force click fallback. */
   private async clickSignInButton(): Promise<boolean> {
-    const options = { timeout: 8_000 };
+    const options = { timeout: AUTH_SIGNIN_BUTTON_MS };
     const tryClick = async (locator: ReturnType<Page['locator']>) => {
       if (await locator.isVisible().catch(() => false)) {
         try {
@@ -140,21 +146,10 @@ export class AuthPage {
       return false;
     };
 
-    // Try "Log In" first (GM form uses this), then "Sign in"
-    if (await tryClick(this.signInBtnLogIn)) return true;
-    if (await tryClick(this.signInBtnByLabel)) return true;
     if (await tryClick(this.signInBtnById)) return true;
     if (await tryClick(this.signInBtn)) return true;
-    if (await tryClick(this.signInBtnByText)) return true;
-    if (await tryClick(this.signInSubmitInput)) return true;
-    const loginPrimaryBtn = this.page.locator('button.gb-primary-button.chevy-primary-button').filter({ hasText: 'Log In' });
-    if (await tryClick(loginPrimaryBtn)) return true;
-    const signInPrimaryBtn = this.page.locator('button.gb-primary-button.chevy-primary-button').filter({ hasText: 'Sign in' });
-    if (await tryClick(signInPrimaryBtn)) return true;
-
-    // When Playwright's click is blocked (overlay / not stable), click via JavaScript
+    if (await tryClick(this.signInPrimaryBtn)) return true;
     if (await this.clickSignInViaJs()) return true;
-
     return false;
   }
 
@@ -169,92 +164,75 @@ export class AuthPage {
    * Retries goto once on network errors (e.g. ERR_HTTP2_PROTOCOL_ERROR).
    */
   async login(_env?: Env, _site?: Site) {
-    const gotoOpts = { waitUntil: 'domcontentloaded' as const, timeout: 30_000 };
+    const gotoOpts = { waitUntil: 'domcontentloaded' as const, timeout: NAV_TIMEOUT_MS };
     try {
       await this.page.goto('/', gotoOpts);
-    } catch (e) {
-      await this.safeWait(2_000);
+    } catch {
+      await this.safeWait(AUTH_GOTO_RETRY_MS);
       await this.page.goto('/', gotoOpts);
     }
     await this.page.waitForLoadState('load').catch(() => {});
 
     await this.closeAllBanners();
-    await this.safeWait(500);
+    await this.safeWait(AUTH_AFTER_CLICK_MS);
 
-    // 1. Check for successful authentication (saved session). Short poll so we don't burn test timeout.
-    const pollMs = 400;
-    const pollTimeoutMs = 8_000;
-    const deadline = Date.now() + pollTimeoutMs;
+    const deadline = Date.now() + AUTH_POLL_DEADLINE_MS;
     while (Date.now() < deadline) {
-      if (await this.isLoggedIn()) {
-        return; // Already authenticated; stay on page and continue. No Sign In flow.
-      }
-      await this.safeWait(pollMs);
+      if (await this.isLoggedIn()) return;
+      await this.safeWait(AUTH_POLL_MS);
     }
 
-    // 2. Not logged in: proceed with full login flow (My Account → Sign In → credentials).
     const blockingModal = this.blockingModal;
-    await blockingModal.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
-    await this.safeWait(500);
+    await blockingModal.waitFor({ state: 'hidden', timeout: AUTH_BLOCKING_MODAL_MS }).catch(() => {});
+    await this.safeWait(AUTH_AFTER_CLICK_MS);
     await this.closeAllBanners();
     await blockingModal.waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
 
-    // Click My Account to open dropdown
     let clicked = false;
     if (await this.myAccountButtonWithLink.isVisible().catch(() => false)) {
       try {
-        await this.myAccountButtonWithLink.click({ timeout: 10_000 });
+        await this.myAccountButtonWithLink.click({ timeout: STEP_TIMEOUT_MS });
         clicked = true;
       } catch {
-        await this.myAccountButtonWithLink.click({ force: true, timeout: 5_000 }).catch(() => {});
+        await this.myAccountButtonWithLink.click({ force: true, timeout: OPTION_VISIBILITY_MS }).catch(() => {});
         clicked = true;
       }
     }
     if (!clicked && (await this.myAccountButton.isVisible().catch(() => false))) {
-      await this.myAccountButton.click({ timeout: 10_000 });
+      await this.myAccountButton.click({ timeout: STEP_TIMEOUT_MS });
     } else if (!clicked && (await this.myAccountLink.isVisible().catch(() => false))) {
-      await this.myAccountLink.click({ timeout: 10_000 });
+      await this.myAccountLink.click({ timeout: STEP_TIMEOUT_MS });
     } else if (!clicked && (await this.myAccountAny.isVisible().catch(() => false))) {
-      await this.myAccountAny.click({ timeout: 10_000, force: true });
+      await this.myAccountAny.click({ timeout: STEP_TIMEOUT_MS, force: true });
     }
-    // If dropdown revealed we're already logged in (e.g. profile name visible), stop
     if (await this.isLoggedIn()) return;
 
-    // Only when not logged in: wait for Sign In in dropdown and click to open login form
-    await this.signInText.waitFor({ state: 'visible', timeout: 10_000 });
+    await this.signInText.waitFor({ state: 'visible', timeout: STEP_TIMEOUT_MS });
     await this.signInText.click();
 
     await this.emailInput.fill(credentials.username);
     await this.continueBtn.click();
 
-    await this.passwordInput.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+    await this.passwordInput.waitFor({ state: 'visible', timeout: STEP_TIMEOUT_MS }).catch(() => {});
     await this.passwordInput.fill(credentials.password);
-    
-    // Submit login – try multiple selectors and force click / Enter as fallbacks
+
     const signInClicked = await this.clickSignInButton();
-    if (!signInClicked) {
-      // Last resort: press Enter in password field to submit form
-      await this.passwordInput.press('Enter');
+    if (!signInClicked) await this.passwordInput.press('Enter');
+
+    await this.safeWait(AUTH_AFTER_CLICK_MS);
+
+    if (await this.modalContainer.isVisible().catch(() => false)) {
+      await this.modalContainer.click();
+      await this.safeWait(AUTH_MODAL_WAIT_MS);
     }
-    
-    await this.safeWait(500);
-    
-    // Close any post-login modal (e.g. #modal-container)
-    const modalContainer = this.modalContainer;
-    if (await modalContainer.isVisible().catch(() => false)) {
-      await modalContainer.click();
-      await this.safeWait(300);
-    }
-    
-    // Also try closing any remaining banners/modals
     await this.closeAllBanners();
 
-    await expect(this.profileButton).toBeVisible({ timeout: 15_000 });
+    await expect(this.profileButton).toBeVisible({ timeout: AUTH_PROFILE_VISIBLE_MS });
   }
 
   async logout() {
     await this.profileButton.locator('a').click();
     await this.signOutBtn.click();
-    await expect(this.signInText).toBeVisible({ timeout: 10_000 });
+    await expect(this.signInText).toBeVisible({ timeout: AUTH_SIGNOUT_VISIBLE_MS });
   }
 }

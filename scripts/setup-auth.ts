@@ -1,8 +1,9 @@
 import { chromium } from '@playwright/test';
 import { AuthPage } from '../pages/auth.page';
-import { getBaseUrl, Env, Site } from '../utils/envUtils';
+import { Env, Site } from '../utils/envUtils';
 import path from 'path';
 import fs from 'fs';
+import { SETUP_POST_PROFILE_MS } from '../constants/waits';
 
 const STORAGE_DIR = path.resolve(__dirname, '../storage');
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -17,7 +18,7 @@ async function setupAuth(env: Env = 'prod', site: Site = 'parts') {
     console.log(`Setting up auth for ${env}/${site}...`);
     const authPage = new AuthPage(page);
     await authPage.login(env, site);
-    await delay(2000);
+    await delay(SETUP_POST_PROFILE_MS);
 
     const storagePath = path.join(STORAGE_DIR, `auth-${site}.json`);
     await context.storageState({ path: storagePath });

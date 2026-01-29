@@ -3,6 +3,7 @@ import { getBaseUrl, Env, Site } from '../utils/envUtils';
 import path from 'path';
 import fs from 'fs';
 import credentials from '../data/credentials.json';
+import { NAV_TIMEOUT_MS, SETUP_POST_GOTO_MS, SETUP_POST_PROFILE_MS } from '../constants/waits';
 
 const STORAGE_DIR = path.resolve(__dirname, '../storage');
 const PROFILE_NAME = (credentials as { profileName?: string }).profileName ?? 'My Account';
@@ -29,11 +30,11 @@ async function setupAuthManual(env: Env = 'prod', site: Site = 'parts') {
   try {
     console.log(`\n📌 Manual auth setup for ${site}\n   ${siteUrl}\n   Log in in the browser (up to 3 min)...\n`);
 
-    await page.goto(siteUrl, { waitUntil: 'load', timeout: 30_000 });
+    await page.goto(siteUrl, { waitUntil: 'load', timeout: NAV_TIMEOUT_MS });
 
     const focusPasswordWhenReady = async () => {
       for (let i = 0; i < 60; i++) {
-        await delay(2000);
+        await delay(SETUP_POST_GOTO_MS);
         try {
           const pw = page.getByRole('textbox', { name: /password/i }).first();
           if (await pw.isVisible().catch(() => false)) {
@@ -65,7 +66,7 @@ async function setupAuthManual(env: Env = 'prod', site: Site = 'parts') {
     const profileButton = page.getByRole('button', { name: PROFILE_NAME }).first();
     await profileButton.waitFor({ state: 'visible', timeout: 180_000 });
 
-    await delay(2000);
+    await delay(SETUP_POST_PROFILE_MS);
 
     const storagePath = path.join(STORAGE_DIR, `auth-${site}.json`);
     await context.storageState({ path: storagePath });

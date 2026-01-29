@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { getBaseUrl, getEnvFromProcess, getSiteFromProcess } from './utils/envUtils';
 import path from 'path';
 import fs from 'fs';
+import { ACTION_TIMEOUT_MS } from './constants/waits';
 
 const env = getEnvFromProcess();
 const site = getSiteFromProcess();
@@ -11,15 +12,20 @@ const accessoriesAuthState = path.join(storageDir, 'auth-accessories.json');
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: /.*\.spec\.ts/, // only *.spec.ts files; do not run fixtures or other modules
+  testMatch: /.*\.spec\.ts/,
   testIgnore: ['**/node_modules/**', '**/fixtures/**'],
   timeout: 90_000,
-  retries: 0, // single run, no retry (set to 1 if you want retries)
-  workers: 1,
+  retries: 1,
+  workers: 2,
+  reporter: [
+    ['list'],
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['./reporters/customReporter.ts'],
+  ],
   use: {
     headless: false,
     viewport: { width: 1280, height: 800 },
-    actionTimeout: 15_000,
+    actionTimeout: ACTION_TIMEOUT_MS,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'retain-on-failure',

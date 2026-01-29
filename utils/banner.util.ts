@@ -5,6 +5,14 @@
  * Set BANNER_CLOSE_SELECTOR env var to override the primary close selector.
  */
 import type { Page } from '@playwright/test';
+import {
+  BANNER_CLOSE_TIMEOUT_MS,
+  BANNER_AFTER_CLICK_MS,
+  BANNER_AFTER_FALLBACK_MS,
+  BANNER_AFTER_ESCAPE_MS,
+  BANNER_FINAL_SETTLE_MS,
+  OPTION_VISIBILITY_MS,
+} from '../constants/waits';
 
 const BANNER_CLOSE_SELECTOR = process.env.BANNER_CLOSE_SELECTOR || '';
 
@@ -12,16 +20,17 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Dismiss promo modal: primary .q-close-modal-button, then fallbacks (MarketingPromoPopup, modal-header, Escape, backdrop). Call after goto() so the modal has time to render. */
 export async function dismissBanner(page: Page): Promise<void> {
-  const timeout = 10_000;
+  const timeout = BANNER_CLOSE_TIMEOUT_MS;
+  const clickTimeout = OPTION_VISIBILITY_MS;
 
   // 1. Assignment selector: .q-close-modal-button – wait for it and click
   const closeBtn = page.locator('.q-close-modal-button').first();
   try {
     await closeBtn.waitFor({ state: 'visible', timeout });
-    await closeBtn.click({ timeout: 5_000 }).catch(async () => {
-      await closeBtn.click({ timeout: 5_000, force: true });
+    await closeBtn.click({ timeout: clickTimeout }).catch(async () => {
+      await closeBtn.click({ timeout: clickTimeout, force: true });
     });
-    await delay(600);
+    await delay(BANNER_AFTER_CLICK_MS);
   } catch {
     // continue to fallbacks
   }
@@ -31,7 +40,7 @@ export async function dismissBanner(page: Page): Promise<void> {
     const custom = page.locator(BANNER_CLOSE_SELECTOR).first();
     if (await custom.isVisible().catch(() => false)) {
       await custom.click({ timeout }).catch(() => {});
-      await delay(500);
+      await delay(BANNER_AFTER_FALLBACK_MS);
     }
   }
 
@@ -56,10 +65,10 @@ export async function dismissBanner(page: Page): Promise<void> {
   for (const getLoc of fallbacks) {
     const el = getLoc();
     if (await el.isVisible().catch(() => false)) {
-      await el.click({ timeout: 5_000 }).catch(async () => {
-        await el.click({ timeout: 5_000, force: true }).catch(() => {});
+      await el.click({ timeout: clickTimeout }).catch(async () => {
+        await el.click({ timeout: clickTimeout, force: true }).catch(() => {});
       });
-      await delay(500);
+      await delay(BANNER_AFTER_FALLBACK_MS);
       break;
     }
   }
@@ -68,7 +77,7 @@ export async function dismissBanner(page: Page): Promise<void> {
   const modal = page.locator('.modal.show, [role="dialog"].show').first();
   if (await modal.isVisible().catch(() => false)) {
     await page.keyboard.press('Escape').catch(() => {});
-    await delay(300);
+    await delay(BANNER_AFTER_ESCAPE_MS);
     await page
       .locator('.modal-backdrop, .modal-backdrop.show')
       .first()
@@ -82,12 +91,7 @@ export async function dismissBanner(page: Page): Promise<void> {
       });
   }
 
-  await delay(400);
-}
-
-/** Legacy alias for callers that use closeBanners. */
-export async function closeBanners(page: Page): Promise<void> {
-  await dismissBanner(page);
+  await delay(BANNER_FINAL_SETTLE_MS);
 }
 
 /**

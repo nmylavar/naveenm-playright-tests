@@ -85,11 +85,16 @@ Re-run `npm run setup-auth:manual` when the session expires.
 
 The **project** determines the base URL (parts vs accessories). No need to set `SITE` when using `--project`.
 
+### Parallel execution and retries
+
+- **Workers:** Default is **2** (parallel). Override: `npx playwright test --workers=1` for sequential.
+- **Retries:** Default is **1** retry per test on failure. Override: `npx playwright test --retries=0` for no retries.
+
 ### Other options
 
 - Headed (see browser): `npx playwright test --headed`
-- One worker (sequential): `npx playwright test --workers=1`
 - Single file: `npx playwright test tests/vehicle-selection.spec.ts`
+- HTML report: `npx playwright show-report playwright-report` (generated after each run)
 
 ---
 
@@ -183,6 +188,16 @@ Tests request only what they need (e.g. `{ auth, home, vehicle }`).
 - **Primary:** `dismissBanner(page)` in `utils/banner.util.ts` – waits for `.q-close-modal-button`, clicks it, then fallbacks (other close buttons, Escape, backdrop). Force-click used when needed.
 - **Backup:** Fixture injects `hideBannerByCss(page)` so modals don’t intercept clicks.
 - **Usage:** Auth, vehicle, and home flows call `dismissBanner` so the promo modal does not block interactions.
+
+### Centralized waits (`constants/waits.ts`)
+
+All timeouts and delays are defined in **`constants/waits.ts`** so tuning is in one place. Page objects, utils, and specs import from here (e.g. `NAV_TIMEOUT_MS`, `STEP_TIMEOUT_MS`, `HOME_LOADED_MS`). No hardcoded `setTimeout` or magic numbers in tests or pages.
+
+### Custom reporting and error handling
+
+- **Reporters:** `playwright.config.ts` uses **list** (console), **HTML** (`playwright-report/`), and a **custom reporter** (`reporters/customReporter.ts`).
+- **Custom reporter:** On each failure it logs `[project] test title` and the error message to the console, and at the end writes a **failure summary** to `test-results/failures.log` (one file per run). Use this for quick inspection of failed tests and project/site context.
+- **Artifacts on failure:** Screenshot, video, and trace are retained on failure (`screenshot: 'only-on-failure'`, `video: 'retain-on-failure'`, `trace: 'retain-on-failure'`).
 
 ---
 
@@ -351,7 +366,8 @@ When a test fails, use the artifacts Playwright generates:
 |------|-------------|
 | **Login** (`login.spec.ts`) | Login (or use saved state), assert profile button visible. |
 | **Vehicle selection** (`vehicle-selection.spec.ts`) | Login → add vehicle (random year from data) → assert URL contains “categories” → verify home → verify vehicle present → unselect vehicle → verify removed. No logout at end. |
-| **Search** (`search.spec.ts`) | Login → verify home → type “oil filter” in search → submit → wait for search complete → assert search input visible. |
+| **Vehicle cancel** (`vehicle-cancel.spec.ts`) | Login → open Add Vehicle modal → cancel (Escape) without adding → assert “+ Add Vehicle” still visible and URL does not contain “categories”. |
+| **Search** (`search.spec.ts`) | (1) Login → verify home → type “oil filter” in search → submit → wait for search complete → assert search input visible. (2) **No-results:** Same flow with query “xyznonexistent999”; assert search completes and input remains visible. |
 | **Navigation** (`navigation.spec.ts`) | (1) After login, home loads and search bar visible. (2) Base URL loads and banner can be dismissed. (3) **Smoke:** Unauthenticated home loads and “+ Add Vehicle” is available. |
 
 ### Sample run results
@@ -413,15 +429,20 @@ Full suite run against both **chromium-parts** and **chromium-accessories** (12 
 ├── Dockerfile             # Playwright image + app; run tests in container
 ├── docker-compose.yml     # Build and run: docker compose run --rm playwright
 ├── .dockerignore          # Excludes node_modules, storage, test-results, etc.
+├── constants/
+│   └── waits.ts          # Centralized timeouts and delays (no magic numbers)
 ├── fixtures/
-│   └── fixtures.ts        # Custom test fixtures (page, auth, home, vehicle)
+│   └── fixtures.ts       # Custom test fixtures (page, auth, home, vehicle)
 ├── pages/
 │   ├── auth.page.ts
 │   ├── home.page.ts
 │   └── vehicle.page.ts
+├── reporters/
+│   └── customReporter.ts # Failure summary to console + test-results/failures.log
 ├── tests/
 │   ├── login.spec.ts
 │   ├── vehicle-selection.spec.ts
+│   ├── vehicle-cancel.spec.ts
 │   ├── search.spec.ts
 │   └── navigation.spec.ts
 ├── utils/
@@ -465,10 +486,10 @@ git branch -M main
 git push -u origin main
 ```
 
-**Replace `YOUR_REPO_URL`** with your repo URL, for example:
+**Replace `YOUR_REPO_URL`** with your repo URL. For [nmylavar](https://github.com/nmylavar), after creating a repo named `chevy-playwright-tests` (or any name):
 
-- `https://github.com/your-username/chevy-playwright-tests.git`
-- `git@github.com:your-username/chevy-playwright-tests.git`
+- `https://github.com/nmylavar/chevy-playwright-tests.git`
+- `git@github.com:nmylavar/chevy-playwright-tests.git`
 
 ### 3. What is not pushed (`.gitignore`)
 

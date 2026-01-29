@@ -4,6 +4,7 @@
  */
 import { Page, expect } from '@playwright/test';
 import { dismissBanner } from '../utils/banner.util';
+import { HOME_LOADED_MS, HOME_VEHICLE_MS, HOME_SEARCH_COMPLETE_MS, STEP_TIMEOUT_MS } from '../constants/waits';
 
 export class HomePage {
   constructor(private readonly page: Page) {}
@@ -24,24 +25,24 @@ export class HomePage {
     );
   }
 
-  async verifyLoaded(timeout = 15_000) {
+  async verifyLoaded(timeout = HOME_LOADED_MS) {
     await dismissBanner(this.page);
     await expect(this.searchBar).toBeVisible({ timeout });
   }
 
-  async verifyVehiclePresent(model: string, timeout = 10_000) {
+  async verifyVehiclePresent(model: string, timeout = HOME_VEHICLE_MS) {
     await expect(this.vehicleButton(model)).toBeVisible({ timeout });
   }
 
   async unselectVehicle(model: string) {
     await dismissBanner(this.page);
-    const opts = { timeout: 10_000 };
+    const opts = { timeout: STEP_TIMEOUT_MS };
     await this.vehicleButton(model).click(opts);
     await this.uncheckIcon.click(opts);
     await this.verifyLoaded();
   }
 
-  async verifyVehicleRemoved(model: string, timeout = 10_000) {
+  async verifyVehicleRemoved(model: string, timeout = HOME_VEHICLE_MS) {
     await expect(this.vehicleButton(model)).not.toBeVisible({ timeout });
   }
 
@@ -53,7 +54,7 @@ export class HomePage {
   }
 
   /** Wait for search to complete (URL or results container). */
-  async waitForSearchComplete(timeout = 10_000): Promise<void> {
+  async waitForSearchComplete(timeout = HOME_SEARCH_COMPLETE_MS): Promise<void> {
     await this.page.waitForURL(/\/(search|categories|parts)/, { timeout }).catch(() => {});
   }
 

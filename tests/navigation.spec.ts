@@ -6,6 +6,7 @@
  */
 import { test, expect } from '../fixtures/fixtures';
 import { dismissBanner } from '../utils/banner.util';
+import { NAV_TIMEOUT_MS, VISIBILITY_TIMEOUT_MS } from '../constants/waits';
 
 test('Navigation: after login, home page loads with search bar visible', async ({ auth, home }) => {
   await auth.login();
@@ -13,15 +14,15 @@ test('Navigation: after login, home page loads with search bar visible', async (
 });
 
 test('Navigation: base URL loads and banner can be dismissed', async ({ page }) => {
-  await page.goto('/', { waitUntil: 'load', timeout: 30_000 });
+  await page.goto('/', { waitUntil: 'load', timeout: NAV_TIMEOUT_MS });
   await dismissBanner(page);
   await page.waitForLoadState('domcontentloaded');
 });
 
 test('Smoke: unauthenticated home loads and Add Vehicle is available', async ({ page }) => {
-  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
   await dismissBanner(page);
   await page.waitForLoadState('load').catch(() => {});
   const addVehicleBtn = page.getByRole('button', { name: '+ Add Vehicle' });
-  await expect(addVehicleBtn).toBeVisible({ timeout: 15_000 });
+  await expect(addVehicleBtn).toBeVisible({ timeout: VISIBILITY_TIMEOUT_MS });
 });
