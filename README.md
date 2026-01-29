@@ -201,7 +201,7 @@ All timeouts and delays are defined in **`constants/waits.ts`** so tuning is in 
 
 ---
 
-## Issues  Faced & How We Debugged
+## Issues  Faced & How I Debugged
 
 This section documents real issues encountered during development and how they were resolved. Use it when tests fail or when debugging similar problems.
 
@@ -308,7 +308,7 @@ This section documents real issues encountered during development and how they w
 
 **Cause:** The body dropdown can be implemented in different ways: sometimes a button shows the full label “Body Sport Utility,” sometimes only “Body” as the trigger, with “Sport Utility” or “Door - Sport Utility” as options. Relying on a single selector made the test brittle.
 
-**How we debugged:**
+**How I debugged:**
 
 - Reproduced in headed mode and inspected the body/door controls.
 - Compared with the assignment’s expected flow (Body Sport Utility → Door - Sport Utility) and the actual DOM.
