@@ -1,4 +1,4 @@
-# Chevrolet E-Commerce Test Automation Framework
+# AutoE-Commerce Test Automation Framework
 
 Scalable Playwright + TypeScript framework for Chevrolet **parts** and **accessories** sites (parts.chevrolet.com, accessories.chevrolet.com), aligned with the QA Automation Engineer take-home assignment.
 
