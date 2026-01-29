@@ -213,7 +213,7 @@ This section documents real issues encountered during development and how they w
 
 **Cause:** A promotional modal (“SAVE NOW! 20% Off* Batteries”, etc.) was overlaying the page. Until it was closed, the DOM was effectively “frozen” for interaction: buttons were visible but another element (the modal) intercepted pointer events. In some cases the modal used structures that made the close button hard to target (e.g. SVG icon, or multiple elements with “My Account” causing strict-mode violations).
 
-**How we debugged:**
+**How I debugged:**
 
 - Ran tests in **headed** mode (`npx playwright test --headed`) to see the modal.
 - Used **Playwright trace** on failure:  
@@ -240,7 +240,7 @@ This section documents real issues encountered during development and how they w
 
 **Cause:** Login (and some navigation) used `getBaseUrl(env, site)` where `env` and `site` came from **process environment** (`ENV`, `SITE`). When running both projects in one run, `SITE` was not set, so `site` defaulted to `'parts'`. So every project (including accessories) was navigating to the parts URL.
 
-**How we debugged:**
+**How I debugged:**
 
 - Noticed that both projects were hitting the same base URL.
 - Checked that Playwright projects each set their own `baseURL` in config, but our code was calling `page.goto(siteUrl)` with a URL built from process env, overriding the project’s baseURL.
@@ -264,7 +264,7 @@ This section documents real issues encountered during development and how they w
 - **Wrong working directory:** Playwright was run from a different folder (e.g. `~/tests`) that had its own config and a different spec (e.g. `feature.spec.ts`) importing `../utils/auth.helper`. That path didn’t exist in the chevy-playwright-tests repo, so loading failed and test discovery broke.  
 - **Test discovery including non-spec files:** If the config matched non-spec files (e.g. fixture files), Playwright could load them as tests and then complain about where `test()` was called.
 
-**How we debugged:**
+**How I debugged:**
 
 - Checked the error stack: it referenced a file path **outside** the project (e.g. `/Users/<you>/tests/feature.spec.ts`).
 - Verified that we always run from the **project root**:  
@@ -288,7 +288,7 @@ This section documents real issues encountered during development and how they w
 
 **Cause:** Transient HTTP/2 protocol errors on navigation, and/or GM’s login server (behind Akamai) refusing automated auth (403). The screenshot shows the Log In form with email/password and the Network tab with the 403 response on the SelfAsserted request.
 
-**How we debugged:**
+**How I debugged:**
 
 - Confirmed the error in the failure message and in trace/screenshots.
 - Checked that the same test could pass on a retry or later run.
@@ -457,55 +457,6 @@ Full suite run against both **chromium-parts** and **chromium-accessories** (12 
 ├── tsconfig.json
 └── package.json
 ```
-
----
-
-## Pushing to a Git repository
-
-To push this project to your own public (or private) repo so your team can clone and validate:
-
-### 1. Create a repo and get the URL
-
-Create a new repository on GitHub (or GitLab/Bitbucket), set it to **Public** if you want team access without invite, and copy the repo URL (e.g. `https://github.com/your-username/chevy-playwright-tests.git` or `git@github.com:your-username/chevy-playwright-tests.git`).
-
-### 2. Initialize Git and push (from project root)
-
-```bash
-cd /path/to/chevy-playwright-tests
-
-# If this folder is not yet a Git repo:
-git init
-git add .
-git commit -m "Initial commit: Chevrolet Playwright test framework"
-
-# Add your repository as remote (replace YOUR_REPO_URL with your actual URL)
-git remote add origin YOUR_REPO_URL
-
-# Push to main (or use master / your default branch)
-git branch -M main
-git push -u origin main
-```
-
-**Replace `YOUR_REPO_URL`** with your repo URL. For [nmylavar](https://github.com/nmylavar), after creating a repo named `chevy-playwright-tests` (or any name):
-
-- `https://github.com/nmylavar/chevy-playwright-tests.git`
-- `git@github.com:nmylavar/chevy-playwright-tests.git`
-
-### 3. What is not pushed (`.gitignore`)
-
-- **`node_modules/`** – dependencies (team runs `npm install`)
-- **`storage/*.json`** – saved auth state (team runs `npm run setup-auth:manual`)
-- **`data/credentials.json`** – your login credentials (team adds their own)
-- **`test-results/`**, **`playwright-report/`** – run artifacts
-
-Your team clones the repo, then runs **Quick Start** (install, `npx playwright install`, `npm run setup-auth:manual`, then `npx playwright test`).
-
-### 4. Giving your team access
-
-- **Public repo:** Anyone with the link can clone; no extra access needed.
-- **Private repo:** In GitHub: **Settings → Collaborators** (or **Manage access**) → **Add people** and invite by username or email.
-
----
 
 ## Scripts
 
